@@ -1,0 +1,8 @@
+{
+  "name": "MagicTris - El Mundo de Gumi",
+  "description": "A magical AI-powered playground featuring conversational voice, image editing, video generation, and deep thinking capabilities powered by Gemini.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
