@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { textToSpeech } from '../services/gemini';
-import { decode, decodeAudioData, getSharedAudioContext } from './AudioUtils';
+import { decode, decodeAudioData, getSharedAudioContext, playPopSound } from './AudioUtils';
 
 interface Props {
   text: string;
@@ -25,6 +25,7 @@ const VoiceButton: React.FC<Props> = ({ text, className }) => {
   }, []);
 
   const handlePlay = async () => {
+    playPopSound(); // Sonido inmediato al tocar
     if (isPlaying) {
       if (sourceRef.current) {
         sourceRef.current.stop();

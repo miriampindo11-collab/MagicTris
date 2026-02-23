@@ -1,6 +1,6 @@
 {
   "name": "MagicTris - El Mundo de Gumi",
-  "description": "A magical AI-powered playground featuring conversational voice, image editing, video generation, and deep thinking capabilities powered by Gemini.",
+  "description": "Una plataforma mágica de aprendizaje con IA para niños, con voz, imágenes y juegos.",
   "requestFramePermissions": [
     "camera",
     "microphone"

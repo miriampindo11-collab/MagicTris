@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
+import { playPopSound } from './AudioUtils';
 
 interface Props { 
     user: User; 
@@ -14,6 +15,31 @@ const Profile: React.FC<Props> = ({ user, onBack, onLogout, onUpdate }) => {
   const [tempNickname, setTempNickname] = useState(user.nickname);
   const avatars = ['🐧', '👾', '🤖', '🦋', '🦁', '⭐', '🐻‍❄️', '🐥'];
 
+  const handleBack = () => {
+    playPopSound();
+    onBack();
+  };
+
+  const handleAvatarSelect = (a: string) => {
+    playPopSound();
+    onUpdate({ avatar: a });
+  };
+
+  const handleLogoutClick = () => {
+    playPopSound();
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    playPopSound();
+    onLogout();
+  };
+
+  const handleLogoutCancel = () => {
+    playPopSound();
+    setShowLogoutConfirm(false);
+  };
+
   const handleNicknameBlur = () => {
     if (tempNickname.trim() !== user.nickname) {
         onUpdate({ nickname: tempNickname.trim() });
@@ -22,7 +48,7 @@ const Profile: React.FC<Props> = ({ user, onBack, onLogout, onUpdate }) => {
 
   return (
     <div className="p-4 pt-16 max-w-4xl mx-auto space-y-4 pb-12 relative">
-      <button onClick={onBack} className="fixed top-4 left-4 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-lg border-2 border-blue-200 text-3xl z-[60] active:scale-90 transition-transform">🏠</button>
+      <button onClick={handleBack} className="fixed top-4 left-4 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-lg border-2 border-blue-200 text-3xl z-[60] active:scale-90 transition-transform">🏠</button>
       
       <div className="bg-white/90 backdrop-blur-xl rounded-[3rem] shadow-2xl overflow-hidden border-[8px] border-white ring-4 ring-blue-100/30">
         
@@ -86,7 +112,7 @@ const Profile: React.FC<Props> = ({ user, onBack, onLogout, onUpdate }) => {
                 {avatars.map(a => (
                   <button 
                     key={a}
-                    onClick={() => onUpdate({ avatar: a })}
+                    onClick={() => handleAvatarSelect(a)}
                     className={`text-3xl p-2 rounded-xl transition-all border-2 ${user.avatar === a ? 'bg-white border-blue-500 scale-110 shadow-md' : 'bg-white/40 border-transparent hover:bg-white hover:border-blue-200'}`}
                   >
                     {a}
@@ -97,7 +123,7 @@ const Profile: React.FC<Props> = ({ user, onBack, onLogout, onUpdate }) => {
           </div>
 
           <button 
-            onClick={() => setShowLogoutConfirm(true)}
+            onClick={handleLogoutClick}
             className="w-full bg-red-50 text-red-500 py-4 rounded-full text-xl font-magic border-2 border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm active:scale-95 uppercase tracking-tighter"
           >
             Cerrar Sesión
@@ -114,14 +140,14 @@ const Profile: React.FC<Props> = ({ user, onBack, onLogout, onUpdate }) => {
             
             <div className="w-full space-y-3">
               <button 
-                onClick={onLogout}
+                onClick={handleLogoutConfirm}
                 className="btn-magic-pop w-full bg-red-500 text-white py-4 rounded-[2rem] text-2xl font-magic shadow-xl border-b-6 border-red-700 active:translate-y-1 uppercase tracking-widest"
               >
                 CONFIRMAR
               </button>
               
               <button 
-                onClick={() => setShowLogoutConfirm(false)}
+                onClick={handleLogoutCancel}
                 className="w-full bg-blue-100 text-blue-600 py-4 rounded-[2rem] text-xl font-magic border-2 border-blue-200 hover:bg-blue-200 transition-all active:scale-95 uppercase tracking-widest"
               >
                 CANCELAR

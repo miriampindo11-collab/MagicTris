@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { supabase, isSupabaseReady } from '../services/supabaseClient';
+import { playPopSound } from './AudioUtils';
 
 interface Props {
   mode: 'login' | 'register';
@@ -15,6 +16,7 @@ const Auth: React.FC<Props> = ({ mode, onAuthSuccess, toggleMode }) => {
   const [loading, setLoading] = useState(false);
 
   const handleGuestEntry = () => {
+    playPopSound();
     onAuthSuccess({
       id: 'guest',
       username: 'Invitado',
@@ -28,68 +30,144 @@ const Auth: React.FC<Props> = ({ mode, onAuthSuccess, toggleMode }) => {
     });
   };
 
+  const handleToggle = () => {
+    playPopSound();
+    toggleMode();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    playPopSound();
+    
     if (!isSupabaseReady()) {
-        setError("El servidor de la nube no está configurado. ¡Usa el Modo Invitado para jugar!");
+        setError("⚠️ ERROR DE CONEXIÓN: No se detectan las llaves de Supabase. Asegúrate de haber hecho un 'Redeploy' en Vercel después de guardar las variables.");
         return;
     }
     
+    if (!formData.email || !formData.pass) {
+        setError("Por favor, completa todos los campos.");
+        return;
+    }
+
     setError('');
     setLoading(true);
 
     try {
       if (mode === 'register') {
         if (formData.pass !== formData.confirm) throw new Error('Las contraseñas no coinciden.');
-        const { data: authData, error: authError } = await supabase!.auth.signUp({
+        if (formData.pass.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+        
+        // Fix: Use type cast for Supabase V2 auth compatibility
+        const { data: authData, error: authError } = await (supabase!.auth as any).signUp({
           email: formData.email,
           password: formData.pass,
+          options: {
+            data: {
+              display_name: formData.name || 'Gumi Amigo'
+            }
+          }
         });
-        if (authError) throw authError;
+
+        if (authError) {
+            if (authError.message.includes("Database error saving new user")) {
+               throw new Error("Error de base de datos. Verifica el SQL Trigger en Supabase.");
+            }
+            throw authError;
+        }
 
         if (authData.user) {
-          const profile = {
-            id: authData.user.id,
-            username: formData.name || formData.email.split('@')[0],
-            email: formData.email,
-            nickname: formData.name || 'Gumi Amigo',
-            avatar: '🌈',
-            score: 0,
-            streak: 1,
-            progress_index: 0,
-            last_login: new Date().toISOString()
-          };
-          await supabase!.from('profiles').upsert(profile);
-          onAuthSuccess(profile as any);
+          if (!authData.session) {
+            setError("¡Cuenta creada! Revisa tu email para confirmar o desactiva 'Confirm Email' en Supabase.");
+            setLoading(false);
+            return;
+          }
+
+          await new Promise(r => setTimeout(r, 1000));
+
+          const { data: profile, error: pError } = await supabase!
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (pError || !profile) {
+            const newProfile = {
+              id: authData.user.id,
+              username: formData.name || formData.email.split('@')[0],
+              email: formData.email,
+              nickname: formData.name || 'Gumi Amigo',
+              avatar: '🌈',
+              score: 0,
+              streak: 1,
+              progress_index: 0,
+              last_login: new Date().toISOString()
+            };
+            await supabase!.from('profiles').insert(newProfile);
+            onAuthSuccess({ ...newProfile, progressIndex: 0, lastLogin: newProfile.last_login } as any);
+          } else {
+            onAuthSuccess({
+                id: profile.id,
+                username: profile.username,
+                email: profile.email,
+                nickname: profile.nickname,
+                avatar: profile.avatar,
+                score: profile.score,
+                streak: profile.streak,
+                progressIndex: profile.progress_index,
+                lastLogin: profile.last_login
+            });
+          }
         }
       } else {
-        const { data: authData, error: authError } = await supabase!.auth.signInWithPassword({
+        // Fix: Use type cast for Supabase V2 auth compatibility
+        const { data: authData, error: authError } = await (supabase!.auth as any).signInWithPassword({
           email: formData.email,
           password: formData.pass,
         });
+        
         if (authError) throw authError;
+        
         if (authData.user) {
-          const { data: profile } = await supabase!.from('profiles').select('*').eq('id', authData.user.id).single();
-          onAuthSuccess(profile as any);
+          const { data: profile, error: pError } = await supabase!
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+            
+          if (pError || !profile) throw new Error("Perfil no encontrado.");
+          
+          onAuthSuccess({
+              id: profile.id,
+              username: profile.username,
+              email: profile.email,
+              nickname: profile.nickname,
+              avatar: profile.avatar,
+              score: profile.score,
+              streak: profile.streak,
+              progressIndex: profile.progress_index,
+              lastLogin: profile.last_login
+          });
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Error al conectar con la magia.');
+      setError(err.message || 'Error de conexión mágica.');
     } finally {
       setLoading(false);
     }
   };
 
-  const inputClass = "w-full p-4 rounded-3xl border-2 border-indigo-300 text-black font-bold focus:ring-4 focus:ring-indigo-200 outline-none placeholder-indigo-300 bg-indigo-50 transition-all shadow-sm";
+  const inputClass = "w-full p-4 rounded-3xl border-2 border-indigo-200 text-black font-bold focus:ring-4 focus:ring-indigo-100 outline-none placeholder-indigo-300 bg-white/80 transition-all shadow-sm";
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="bg-white/70 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl w-full max-w-md border-[6px] border-white flex flex-col items-center">
-        <h2 className="text-3xl font-magic text-indigo-700 mb-6 uppercase">
-          {mode === 'login' ? '¡Hola de nuevo!' : '¡Hola nuevo amigo!'}
-        </h2>
+      <div className="bg-white/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] shadow-2xl w-full max-w-md border-[6px] sm:border-[8px] border-white flex flex-col items-center animate-fade-in">
+        <div className="mb-4 sm:mb-6 text-center">
+            <h2 className="text-2xl sm:text-4xl font-magic text-indigo-700 uppercase tracking-tighter drop-shadow-sm">
+              {mode === 'login' ? '¡HOLA DE NUEVO!' : '¡HOLA NUEVO AMIGO!'}
+            </h2>
+        </div>
         
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
+        <form onSubmit={handleSubmit} className="w-full space-y-3 sm:space-y-4">
           {mode === 'register' && (
             <input className={inputClass} placeholder="¿Cómo te llamas?" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
           )}
@@ -99,22 +177,26 @@ const Auth: React.FC<Props> = ({ mode, onAuthSuccess, toggleMode }) => {
             <input className={inputClass} placeholder="Repite tu contraseña" type="password" value={formData.confirm} onChange={e => setFormData({...formData, confirm: e.target.value})} />
           )}
           
-          {error && <p className="text-red-500 text-xs font-bold text-center bg-red-50 p-2 rounded-xl">{error}</p>}
+          {error && (
+            <div className="bg-red-50 p-3 sm:p-4 rounded-2xl border-2 border-red-100 animate-pulse">
+                <p className="text-red-600 text-[10px] font-black text-center uppercase leading-tight">{error}</p>
+            </div>
+          )}
           
-          <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-3xl font-magic text-xl shadow-lg active:scale-95 disabled:grayscale">
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-indigo-600 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-magic text-xl sm:text-2xl shadow-xl hover:bg-indigo-700 active:translate-y-1 transition-all border-b-6 sm:border-b-8 border-indigo-800"
+          >
             {loading ? 'CARGANDO...' : 'ENTRAR'}
           </button>
         </form>
 
-        <div className="mt-6 flex flex-col gap-3 w-full">
-            <button onClick={toggleMode} className="text-indigo-500 text-sm font-bold hover:underline">
-                {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Entra aquí'}
+        <div className="mt-8 flex flex-col gap-4 w-full text-center">
+            <button onClick={handleToggle} className="text-indigo-400 text-sm font-bold uppercase tracking-widest">
+                {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Entra'}
             </button>
-            <div className="h-px bg-gray-200 w-full my-2"></div>
-            <button 
-                onClick={handleGuestEntry}
-                className="w-full bg-pink-500 text-white py-4 rounded-3xl font-magic text-xl shadow-lg hover:bg-pink-600 transition-all active:scale-95"
-            >
+            <button onClick={handleGuestEntry} className="text-pink-500 font-magic text-xl uppercase">
                 MODO INVITADO
             </button>
         </div>

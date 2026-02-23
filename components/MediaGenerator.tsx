@@ -27,14 +27,22 @@ const MediaGenerator: React.FC = () => {
     }
   };
 
+  const ensureApiKey = async () => {
+    const hasKey = await (window as any).aistudio?.hasSelectedApiKey?.();
+    if (!hasKey) {
+      await (window as any).aistudio?.openSelectKey?.();
+      // Asumimos éxito tras abrir el diálogo para evitar bloqueos por condiciones de carrera
+    }
+  };
+
   const handleAction = async () => {
     if (!prompt && mode !== 'video') return;
     setLoading(true);
     setResultUrl(null);
     try {
+      // Los modelos Pro y Veo requieren selección de llave de pago por el usuario
       if (mode === 'video' || mode === 'generate') {
-        const hasKey = await (window as any).aistudio?.hasSelectedApiKey?.() || false;
-        if (!hasKey) await (window as any).aistudio?.openSelectKey?.();
+        await ensureApiKey();
       }
 
       if (mode === 'generate') {
@@ -44,13 +52,25 @@ const MediaGenerator: React.FC = () => {
         const url = await editImageFlash(prompt, baseImage);
         setResultUrl(url);
       } else if (mode === 'video' && baseImage) {
+        // Creamos instancia nueva justo antes del video
         const ai = getGeminiClient();
-        let operation = await ai.models.generateVideos({
-          model: 'veo-3.1-fast-generate-preview',
-          prompt: prompt || 'Un video mágico de este personaje cobrando vida',
-          image: { imageBytes: baseImage.split(',')[1], mimeType: 'image/png' },
-          config: { numberOfVideos: 1, resolution: videoOptions.resolution, aspectRatio: videoOptions.aspectRatio }
-        });
+        let operation;
+        
+        try {
+          operation = await ai.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: prompt || 'Un video mágico de este personaje cobrando vida',
+            image: { imageBytes: baseImage.split(',')[1], mimeType: 'image/png' },
+            config: { numberOfVideos: 1, resolution: videoOptions.resolution, aspectRatio: videoOptions.aspectRatio }
+          });
+        } catch (err: any) {
+          if (err.message?.includes("Requested entity was not found")) {
+            // Si la llave falló, pedimos seleccionar una nueva
+            await (window as any).aistudio?.openSelectKey?.();
+            throw new Error("Por favor, selecciona una llave válida de un proyecto con facturación.");
+          }
+          throw err;
+        }
 
         while (!operation.done) {
           await new Promise(r => setTimeout(r, 10000));
@@ -59,20 +79,14 @@ const MediaGenerator: React.FC = () => {
 
         const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (downloadLink) {
-           try {
-               const videoRes = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-               if (!videoRes.ok) throw new Error("Video download failed");
-               const blob = await videoRes.blob();
-               setResultUrl(URL.createObjectURL(blob));
-           } catch (fetchErr) {
-               console.error("Fetch de video falló:", fetchErr);
-               alert("El video se generó pero no se pudo descargar. Verifica tu conexión.");
-           }
+           const videoRes = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+           const blob = await videoRes.blob();
+           setResultUrl(URL.createObjectURL(blob));
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('¡Vaya! La magia falló un poco. Intenta de nuevo.');
+      alert(err.message || '¡Vaya! La magia falló un poco. Asegúrate de tener una llave válida y saldo en tu proyecto de Google.');
     } finally {
       setLoading(false);
     }
@@ -96,16 +110,31 @@ const MediaGenerator: React.FC = () => {
         </div>
       )}
 
-      <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe el hechizo que quieres lanzar..." className="w-full p-4 rounded-3xl border-none shadow-inner bg-white/80 focus:ring-4 focus:ring-indigo-300 outline-none text-indigo-900 font-bold placeholder-indigo-300" rows={3} />
+      <textarea 
+        value={prompt} 
+        onChange={(e) => setPrompt(e.target.value)} 
+        placeholder={mode === 'video' ? "Describe qué quieres que pase en el video..." : "Describe el hechizo que quieres lanzar..."} 
+        className="w-full p-4 rounded-3xl border-none shadow-inner bg-white/80 focus:ring-4 focus:ring-indigo-300 outline-none text-indigo-900 font-bold placeholder-indigo-300" 
+        rows={3} 
+      />
 
-      <button onClick={handleAction} disabled={loading || (!prompt && mode !== 'video')} className="w-full py-5 rounded-full font-magic text-xl text-white bg-indigo-600 btn-magic-pop disabled:grayscale shadow-xl active:translate-y-1">
-        {loading ? 'HACIENDO MAGIA...' : 'LANZAR HECHIZO'}
-      </button>
+      <div className="flex flex-col gap-2">
+        <button onClick={handleAction} disabled={loading || (!prompt && mode !== 'video')} className="w-full py-5 rounded-full font-magic text-xl text-white bg-indigo-600 btn-magic-pop disabled:grayscale shadow-xl active:translate-y-1">
+          {loading ? 'HACIENDO MAGIA...' : 'LANZAR HECHIZO'}
+        </button>
+        {(mode === 'video' || mode === 'generate') && (
+          <p className="text-[10px] text-center text-indigo-400 font-bold uppercase">Requiere cuenta con facturación en Google Cloud</p>
+        )}
+      </div>
 
       {resultUrl && (
         <div className="mt-4 p-4 bg-white/60 rounded-3xl border-2 border-white shadow-xl flex flex-col items-center gap-4 animate-fade-in">
           <h3 className="font-magic text-lg text-indigo-900 uppercase">¡HECHIZO COMPLETADO!</h3>
-          {mode === 'video' ? <video src={resultUrl} controls className="w-full rounded-2xl shadow-lg" /> : <img src={resultUrl} className="w-full rounded-2xl shadow-lg" />}
+          {mode === 'video' ? (
+            <video src={resultUrl} controls className="w-full rounded-2xl shadow-lg" />
+          ) : (
+            <img src={resultUrl} className="w-full rounded-2xl shadow-lg" />
+          )}
           <a href={resultUrl} download="magia-gumi" className="bg-indigo-500 text-white px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-md">Guardar Obra</a>
         </div>
       )}
