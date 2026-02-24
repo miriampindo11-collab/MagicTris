@@ -27,24 +27,11 @@ const MediaGenerator: React.FC = () => {
     }
   };
 
-  const ensureApiKey = async () => {
-    const hasKey = await (window as any).aistudio?.hasSelectedApiKey?.();
-    if (!hasKey) {
-      await (window as any).aistudio?.openSelectKey?.();
-      // Asumimos éxito tras abrir el diálogo para evitar bloqueos por condiciones de carrera
-    }
-  };
-
   const handleAction = async () => {
     if (!prompt && mode !== 'video') return;
     setLoading(true);
     setResultUrl(null);
     try {
-      // Los modelos Pro y Veo requieren selección de llave de pago por el usuario
-      if (mode === 'video' || mode === 'generate') {
-        await ensureApiKey();
-      }
-
       if (mode === 'generate') {
         const url = await generateImagePro(prompt, imageOptions);
         setResultUrl(url);
@@ -52,25 +39,16 @@ const MediaGenerator: React.FC = () => {
         const url = await editImageFlash(prompt, baseImage);
         setResultUrl(url);
       } else if (mode === 'video' && baseImage) {
-        // Creamos instancia nueva justo antes del video
+        // El video sigue requiriendo una llave con facturación
         const ai = getGeminiClient();
         let operation;
         
-        try {
-          operation = await ai.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
-            prompt: prompt || 'Un video mágico de este personaje cobrando vida',
-            image: { imageBytes: baseImage.split(',')[1], mimeType: 'image/png' },
-            config: { numberOfVideos: 1, resolution: videoOptions.resolution, aspectRatio: videoOptions.aspectRatio }
-          });
-        } catch (err: any) {
-          if (err.message?.includes("Requested entity was not found")) {
-            // Si la llave falló, pedimos seleccionar una nueva
-            await (window as any).aistudio?.openSelectKey?.();
-            throw new Error("Por favor, selecciona una llave válida de un proyecto con facturación.");
-          }
-          throw err;
-        }
+        operation = await ai.models.generateVideos({
+          model: 'veo-3.1-fast-generate-preview',
+          prompt: prompt || 'Un video mágico de este personaje cobrando vida',
+          image: { imageBytes: baseImage.split(',')[1], mimeType: 'image/png' },
+          config: { numberOfVideos: 1, resolution: videoOptions.resolution, aspectRatio: videoOptions.aspectRatio }
+        });
 
         while (!operation.done) {
           await new Promise(r => setTimeout(r, 10000));
@@ -79,14 +57,14 @@ const MediaGenerator: React.FC = () => {
 
         const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (downloadLink) {
-           const videoRes = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+           const videoRes = await fetch(`${downloadLink}&key=${(import.meta as any).env.VITE_GEMINI_API_KEY}`);
            const blob = await videoRes.blob();
            setResultUrl(URL.createObjectURL(blob));
         }
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || '¡Vaya! La magia falló un poco. Asegúrate de tener una llave válida y saldo en tu proyecto de Google.');
+      alert('¡Vaya! La magia falló un poco. Revisa que tu VITE_GEMINI_API_KEY sea válida en Vercel.');
     } finally {
       setLoading(false);
     }
@@ -122,8 +100,8 @@ const MediaGenerator: React.FC = () => {
         <button onClick={handleAction} disabled={loading || (!prompt && mode !== 'video')} className="w-full py-5 rounded-full font-magic text-xl text-white bg-indigo-600 btn-magic-pop disabled:grayscale shadow-xl active:translate-y-1">
           {loading ? 'HACIENDO MAGIA...' : 'LANZAR HECHIZO'}
         </button>
-        {(mode === 'video' || mode === 'generate') && (
-          <p className="text-[10px] text-center text-indigo-400 font-bold uppercase">Requiere cuenta con facturación en Google Cloud</p>
+        {mode === 'video' && (
+          <p className="text-[10px] text-center text-indigo-400 font-bold uppercase">El video requiere cuenta con facturación en Google Cloud</p>
         )}
       </div>
 

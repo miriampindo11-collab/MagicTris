@@ -3,19 +3,16 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 // Siempre creamos una instancia nueva para asegurar que use la API_KEY actual del proceso
 export const getGeminiClient = () => {
-  // Prioridad para despliegues externos (Vercel/Netlify)
+  // En Vite, las variables deben ser accedidas de forma estática para que se reemplacen en el build
   let apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
   
-  // Si no está en import.meta, buscamos en process (entorno AI Studio)
+  // Fallback para otros entornos (como el editor de AI Studio)
   if (!apiKey && typeof process !== 'undefined') {
     apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   }
   
   if (!apiKey) {
-    console.error("❌ ERROR: No se encontró la VITE_GEMINI_API_KEY. Configúrala en las variables de entorno de tu despliegue.");
-  } else {
-    // Solo mostramos los primeros caracteres por seguridad
-    console.log("✅ Llave Mágica cargada correctamente:", apiKey.substring(0, 8) + "...");
+    console.error("❌ ERROR: No se encontró la VITE_GEMINI_API_KEY.");
   }
   
   return new GoogleGenAI({ apiKey: apiKey || '' });

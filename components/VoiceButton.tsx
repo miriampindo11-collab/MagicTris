@@ -66,9 +66,19 @@ const VoiceButton: React.FC<Props> = ({ text, className }) => {
       } else {
         setIsPlaying(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error de voz:", err);
-      if (isMounted.current) setIsPlaying(false);
+      if (isMounted.current) {
+        setIsPlaying(false);
+        // Alertamos al usuario para que sepa qué está fallando
+        if (err.message?.includes("API key not valid")) {
+          alert("❌ La Llave Mágica no es válida. Revisa que la hayas copiado bien en Vercel.");
+        } else if (err.message?.includes("quota")) {
+          alert("❌ Se ha agotado el límite gratuito de tu Llave Mágica.");
+        } else {
+          alert("❌ Gumi no pudo hablar. Revisa que hayas puesto la VITE_GEMINI_API_KEY en Vercel y hayas hecho Redeploy.");
+        }
+      }
     }
   };
 
