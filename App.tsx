@@ -84,9 +84,26 @@ const App: React.FC = () => {
   const handleGameComplete = async (scoreGain: number) => {
     if (!user || selectedCardIndex === null) return;
     const today = new Date();
+    const lastDate = new Date(user.lastLogin);
+    const diff = getDaysDiff(lastDate, today);
+    
+    let newStreak = user.streak;
+    
+    // Lógica de racha:
+    // Si es su primera vez o la racha estaba en 0, empieza en 1.
+    // Si jugó ayer (diff === 1), aumenta la racha.
+    // Si ya jugó hoy (diff === 0), la racha se mantiene igual.
+    // Si pasó más de un día (diff > 1), se reinicia a 1 porque acaba de completar un juego.
+    if (user.streak === 0 || diff > 1) {
+      newStreak = 1;
+    } else if (diff === 1) {
+      newStreak += 1;
+    }
+
     const updatedUser: User = {
       ...user,
       score: user.score + scoreGain,
+      streak: newStreak,
       progressIndex: Math.max(user.progressIndex, selectedCardIndex + 1),
       lastLogin: today.toISOString()
     };
@@ -95,6 +112,7 @@ const App: React.FC = () => {
     if (isSupabaseReady() && user.id !== 'guest') {
       await supabase!.from('profiles').update({
         score: updatedUser.score,
+        streak: updatedUser.streak,
         progress_index: updatedUser.progressIndex,
         last_login: updatedUser.lastLogin
       }).eq('id', user.id);

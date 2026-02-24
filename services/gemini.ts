@@ -2,12 +2,22 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 // Siempre creamos una instancia nueva para asegurar que use la API_KEY actual del proceso
-export const getGeminiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const getGeminiClient = () => {
+  // En AI Studio se usa process.env.GEMINI_API_KEY o process.env.API_KEY
+  // En despliegues externos (Vercel/Netlify) se usa import.meta.env.VITE_GEMINI_API_KEY
+  const apiKey = (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.API_KEY) : '') || (import.meta as any).env.VITE_GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    console.warn("Gemini API Key no encontrada. Asegúrate de configurar VITE_GEMINI_API_KEY en tu despliegue.");
+  }
+  
+  return new GoogleGenAI({ apiKey: apiKey || '' });
+};
 
 export const chatWithPro = async (message: string, history: any[] = []) => {
   const ai = getGeminiClient();
   const chat = ai.chats.create({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     history: history,
     config: {
       systemInstruction: "Eres Gumi, una criatura mágica y sabia. Habla con muchos emojis, sé muy cariñoso y breve con los niños. Tu amigo Pipo el robot también está aquí.",
@@ -36,12 +46,11 @@ export const textToSpeech = async (text: string): Promise<string | undefined> =>
 export const generateImagePro = async (prompt: string, options: { aspectRatio: string; imageSize: string }) => {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: 'gemini-2.5-flash-image',
     contents: { parts: [{ text: prompt }] },
     config: {
       imageConfig: {
         aspectRatio: options.aspectRatio as any,
-        imageSize: options.imageSize as any,
       },
     },
   });
