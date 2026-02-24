@@ -39,10 +39,11 @@ const Hub: React.FC<Props> = ({ user, setSection, onSelectCard }) => {
       <header className="fixed top-0 left-0 right-0 h-20 sm:h-24 bg-indigo-900/80 backdrop-blur-xl shadow-2xl z-[60] px-3 sm:px-8 flex items-center justify-between border-b-4 border-white/10">
         
         {/* LOGOTIPO MAGIC TRIS */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-3xl md:text-4xl font-magic text-white tracking-tighter drop-shadow-[0_4px_0_rgba(0,0,0,0.3)] select-none">
                 MAGIC<span className="text-cyan-400">TRIS</span>
             </h1>
+            <span className="text-[8px] bg-white/20 text-white px-1 rounded font-mono">v1.1-audio</span>
         </div>
 
         {/* ELEMENTOS DE ESTADO Y BOTONES */}

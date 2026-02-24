@@ -65,6 +65,7 @@ const VoiceButton: React.FC<Props> = ({ text, className }) => {
         source.start();
       } else {
         setIsPlaying(false);
+        alert("⚠️ Gumi no devolvió audio. Esto suele pasar si la VITE_GEMINI_API_KEY no está bien configurada en Vercel.");
       }
     } catch (err: any) {
       console.error("Error de voz:", err);
