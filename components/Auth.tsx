@@ -98,23 +98,33 @@ const Auth: React.FC<Props> = ({ mode, onAuthSuccess, toggleMode }) => {
               nickname: formData.name || 'Gumi Amigo',
               avatar: '🌈',
               score: 0,
-              streak: 1,
+              streak: 0, // Empezará en 1 al ganar el primer juego
               progress_index: 0,
               last_login: new Date().toISOString()
             };
             await supabase!.from('profiles').insert(newProfile);
-            onAuthSuccess({ ...newProfile, progressIndex: 0, lastLogin: newProfile.last_login } as any);
+            onAuthSuccess({ 
+              id: newProfile.id,
+              username: newProfile.username,
+              email: newProfile.email,
+              nickname: newProfile.nickname,
+              avatar: newProfile.avatar,
+              score: 0,
+              streak: 0,
+              progressIndex: 0,
+              lastLogin: newProfile.last_login
+            });
           } else {
             onAuthSuccess({
                 id: profile.id,
-                username: profile.username,
-                email: profile.email,
-                nickname: profile.nickname,
-                avatar: profile.avatar,
-                score: profile.score,
-                streak: profile.streak,
-                progressIndex: profile.progress_index,
-                lastLogin: profile.last_login
+                username: profile.username || 'Gumi',
+                email: profile.email || '',
+                nickname: profile.nickname || profile.username || 'Amigo',
+                avatar: profile.avatar || '🌈',
+                score: Number(profile.score) || 0,
+                streak: Number(profile.streak) || 0,
+                progressIndex: Number(profile.progress_index) || 0,
+                lastLogin: profile.last_login || new Date().toISOString()
             });
           }
         }

@@ -27,10 +27,14 @@ const App: React.FC = () => {
   };
 
   const mapProfileToUser = (profile: any): User => {
-    const lastDate = new Date(profile.last_login || profile.lastLogin || new Date());
+    const lastLoginStr = profile.last_login || profile.lastLogin || new Date().toISOString();
+    const lastDate = new Date(lastLoginStr);
     const today = new Date();
     const diff = getDaysDiff(lastDate, today);
-    let currentStreak = profile.streak || 0;
+    
+    // Si ha pasado más de un día sin jugar, la racha se rompe (vuelve a 0)
+    // Pero si juega hoy, la racha se mantendrá o subirá en handleGameComplete
+    let currentStreak = Number(profile.streak) || 0;
     if (diff > 1) currentStreak = 0;
 
     return {
@@ -39,10 +43,10 @@ const App: React.FC = () => {
       email: profile.email || '',
       nickname: profile.nickname || profile.username || 'Invitado',
       avatar: profile.avatar || '🌈',
-      score: profile.score || 0,
+      score: Number(profile.score) || 0,
       streak: currentStreak,
-      progressIndex: profile.progress_index || profile.progressIndex || 0,
-      lastLogin: profile.last_login || profile.lastLogin || new Date().toISOString()
+      progressIndex: Number(profile.progress_index || profile.progressIndex) || 0,
+      lastLogin: lastLoginStr
     };
   };
 
@@ -97,7 +101,7 @@ const App: React.FC = () => {
     if (user.streak === 0 || diff > 1) {
       newStreak = 1;
     } else if (diff === 1) {
-      newStreak += 1;
+      newStreak = user.streak + 1;
     }
 
     const updatedUser: User = {
@@ -109,7 +113,9 @@ const App: React.FC = () => {
     };
     setUser(updatedUser);
     localStorage.setItem('magic_user', JSON.stringify(updatedUser));
+    
     if (isSupabaseReady() && user.id !== 'guest') {
+      console.log("Actualizando racha en Supabase:", newStreak);
       await supabase!.from('profiles').update({
         score: updatedUser.score,
         streak: updatedUser.streak,
